@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <title>আঞ্চলিক ভাষা শনাক্তকারী</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="page-shell">
+        <div class="ambient ambient-left"></div>
+        <div class="ambient ambient-right"></div>
+
+        <main class="app-card">
+            <section class="hero">
+                <div class="eyebrow">Bangla dialect intelligence</div>
+                <h1>আঞ্চলিক ভাষা শনাক্তকারী</h1>
+                <p class="subtitle">একটি বাংলা বাক্য লিখুন, মডেলটি সম্ভাব্য আঞ্চলিক ধরন এবং confidence দেখাবে।</p>
+
+                <div class="metric-grid">
+                    <div class="metric">
+                        <span class="metric-label">Supported labels</span>
+                        <strong>11 regions</strong>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Input limit</span>
+                        <strong>128 tokens</strong>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Response</span>
+                        <strong>Instant analysis</strong>
+                    </div>
+                </div>
+            </section>
+
+            <section class="workspace">
+                <label for="inputText" class="input-label">বাংলা বাক্য</label>
+                <textarea id="inputText" placeholder="যেমন: কি খবর? কি করতাছেন?" rows="5"></textarea>
+
+                <div class="sample-row" aria-label="Sample phrases">
+                    <button type="button" class="sample-chip" onclick="fillSample('আপনের কই যাইতেছেন?')">নমুনা ১</button>
+                    <button type="button" class="sample-chip" onclick="fillSample('তুমি কেমন আছো ভাই?')">নমুনা ২</button>
+                    <button type="button" class="sample-chip" onclick="fillSample('এইডা নিয়া কী কইতাছেন?')">নমুনা ৩</button>
+                </div>
+
+                <div class="action-row">
+                    <button id="predictBtn" class="primary-btn" onclick="predictDialect()">ফলাফল দেখুন</button>
+                    <button type="button" class="secondary-btn" onclick="clearText()">Clear</button>
+                </div>
+
+                <p id="statusText" class="status-text" aria-live="polite"></p>
+
+                <div id="resultBox" class="result-box" style="display:none;" aria-live="polite">
+                    <div class="result-header">
+                        <span class="result-badge">Prediction</span>
+                        <span id="confidenceLabel" class="confidence-pill"></span>
+                    </div>
+                    <div class="result-body">
+                        <span class="result-label">সম্ভাব্য dialect</span>
+                        <strong id="dialectLabel"></strong>
+                    </div>
+                </div>
+            </section>
+
+            <footer class="footer-note">
+                <span>Built for quick regional dialect analysis</span>
+                <span>Powered by RoBERTa</span>
+                <span>Developed by Nazmul Rahad</span>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        const inputText = document.getElementById('inputText');
+        const statusText = document.getElementById('statusText');
+        const resultBox = document.getElementById('resultBox');
+        const predictBtn = document.getElementById('predictBtn');
+
+        function fillSample(text) {
+            inputText.value = text;
+            inputText.focus();
+            statusText.textContent = 'Sample loaded. Edit it or run prediction.';
+        }
+
+        function clearText() {
+            inputText.value = '';
+            resultBox.style.display = 'none';
+            statusText.textContent = '';
+            inputText.focus();
+        }
+
+        async function predictDialect() {
+            const text = inputText.value.trim();
+
+            if (!text) {
+                statusText.textContent = 'অনুগ্রহ করে একটি বাংলা বাক্য লিখুন।';
+                inputText.focus();
+                return;
+            }
+
+            predictBtn.disabled = true;
+            predictBtn.textContent = 'Analyzing...';
+            statusText.textContent = 'Model is evaluating the text.';
+
+            try {
+                const res = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text })
+                });
+
+                const data = await res.json();
+
+                if (data.dialect) {
+                    resultBox.style.display = 'block';
+                    document.getElementById('dialectLabel').innerText = data.dialect;
+                    document.getElementById('confidenceLabel').innerText = data.confidence;
+                    if (data.warning) {
+                        statusText.textContent = data.warning;
+                    } else if (data.source) {
+                        statusText.textContent = `Prediction complete (${data.source}).`;
+                    } else {
+                        statusText.textContent = 'Prediction complete.';
+                    }
+                } else {
+                    resultBox.style.display = 'none';
+                    statusText.textContent = 'Error: ' + (data.error || 'একটি ত্রুটি ঘটেছে');
+                }
+            } catch (error) {
+                resultBox.style.display = 'none';
+                statusText.textContent = 'Request failed. Please try again.';
+            } finally {
+                predictBtn.disabled = false;
+                predictBtn.textContent = 'ফলাফল দেখুন';
+            }
+        }
+    </script>
+</body>
+</html>
